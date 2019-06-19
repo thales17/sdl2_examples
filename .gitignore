@@ -1,4 +1,6 @@
 *.exe
-audioqueue/audioqueue
-squarewave/squarewave
-ttf/ttf
+audio/audioqueue/audioqueue
+audio/squarewave/squarewave
+text/ttf/ttf
+basic/hello/hello
+audio/simplesynth/simplesynth
