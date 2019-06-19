@@ -20,7 +20,7 @@ SDL_Renderer *renderer;
 SDL_AudioDeviceID audio_dev;
 SDL_AudioSpec have_spec;
 
-struct squarewave synthdata;
+struct squarewave synthdata[4];
 
 int b1_state = 0;
 int b2_state = 0;
@@ -31,6 +31,8 @@ int update_needed = 0;
 
 void audio_callback(void *userdata, uint8_t *stream, int len)
 {
+	int i;
+	int j;
 	union floatbytes {
 		float f;
 		uint8_t bytes[4];
@@ -39,18 +41,19 @@ void audio_callback(void *userdata, uint8_t *stream, int len)
 	union floatbytes overlay;
 	struct squarewave *swdata = (struct squarewave *)userdata;
 
-	for (int i = 0; i < len; i += 4) {
-		overlay.f = swdata->volume;
-		if (swdata->phase > 0.5) {
-			overlay.f = -1 * swdata->volume;
+	for (i = 0; i < len; i += 4) {
+		overlay.f = 0;
+		for (j = 0; j < 4; j++) {
+			overlay.f += (swdata[j].phase < 0.5) ? swdata[j].volume : -1 * swdata[j].volume;
 		}
 
-		stream[i + 0] = overlay.bytes[0];
-		stream[i + 1] = overlay.bytes[1];
-		stream[i + 2] = overlay.bytes[2];
-		stream[i + 3] = overlay.bytes[3];
+		for (j = 0; j < 4; j++) {
+			stream[i + j] = overlay.bytes[j];
+		}
 
-		swdata->phase = fmodf((swdata->phase + swdata->phase_inc), (float)1.0);
+		for (j = 0; j < 4; j++) {
+			swdata[j].phase = fmodf((swdata[j].phase + swdata[j].phase_inc), (float)1.0);
+		}
 	}
 }
 
@@ -121,9 +124,22 @@ int init_audio()
 {
 	SDL_AudioSpec want;
 
-	synthdata.phase_inc = 440.0 / 44100.0;
-	synthdata.phase = 0.0;
-	synthdata.volume = 0.0;
+	synthdata[0].phase_inc = 25.0 / 44100.0;
+	synthdata[0].phase = 0.0;
+	synthdata[0].volume = 0.0;
+
+	synthdata[1].phase_inc = 75.0 / 44100.0;
+	synthdata[1].phase = 0.0;
+	synthdata[1].volume = 0.0;
+
+	synthdata[2].phase_inc = 150.0 / 44100.0;
+	synthdata[2].phase = 0.0;
+	synthdata[2].volume = 0.0;
+
+	synthdata[3].phase_inc = 440.0 / 44100.0;
+	synthdata[3].phase = 0.0;
+	synthdata[3].volume = 0.0;
+
 
 	SDL_memset(&want, 0, sizeof(want));
 	want.freq = 44100;
@@ -193,28 +209,11 @@ void update()
 		return;
 	}
 
-	float v = 0.0;
-	float phase_numerator = 0.0;
-
-	if (b1_state + b2_state + b3_state + b4_state > 0) {
-		v = 0.15;
-		if (b1_state) {
-			phase_numerator += 50;
-		}
-		if (b2_state) {
-			phase_numerator += 100;
-		}
-		if (b3_state) {
-			phase_numerator += 150;
-		}
-		if (b4_state) {
-			phase_numerator += 200;
-		}
-	}
 	SDL_LockAudioDevice(audio_dev);
-	synthdata.volume = v;
-	synthdata.phase_inc = phase_numerator / 44100.0;
-	synthdata.phase = 0.0;
+	synthdata[0].volume = (b1_state) ? 0.15 : 0.0;
+	synthdata[1].volume = (b2_state) ? 0.15 : 0.0;
+	synthdata[2].volume = (b3_state) ? 0.15 : 0.0;
+	synthdata[3].volume = (b4_state) ? 0.15 : 0.0;
 	SDL_UnlockAudioDevice(audio_dev);
 
 	update_needed = 0;
