@@ -1,12 +1,16 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <SDL2/SDL.h>
 
 
 #define WIDTH 800
 #define HEIGHT 600
-#define TITLE "Simple Synth"
+#define TITLE "Timed Sound"
 
+#define SOUND_DURATION_MS 250.0
+
+#define MS_STEP 44100.0 / 1000.0
 
 struct squarewave {
 	float phase_inc;
@@ -22,12 +26,50 @@ SDL_AudioSpec have_spec;
 
 struct squarewave synthdata[4];
 
-int b1_state = 0;
-int b2_state = 0;
-int b3_state = 0;
-int b4_state = 0;
+struct sndinfo {
+	uint8_t tone;
+	uint32_t duration_ms;
+};
 
-int update_needed = 0;
+int mute_after(void *data)
+{
+	struct sndinfo *mute_data = (struct sndinfo *)data;
+
+	if (mute_data->tone >= 4) {
+		SDL_Log("Invalid tone");
+		return 1;
+	}
+
+	SDL_Delay(mute_data->duration_ms);
+
+	SDL_LockAudioDevice(audio_dev);
+	synthdata[mute_data->tone].volume = 0;
+	SDL_UnlockAudioDevice(audio_dev);
+
+	free(mute_data);
+}
+
+int play_sound(uint8_t tone, float volume, uint32_t duration_ms)
+{
+	struct sndinfo *mute_data = malloc(sizeof(struct sndinfo));
+
+	mute_data->tone = tone;
+	mute_data->duration_ms = duration_ms;
+
+	if (tone >= 4) {
+		SDL_Log("Invalid tone");
+		return 1;
+	}
+
+	SDL_LockAudioDevice(audio_dev);
+	synthdata[tone].volume = volume;
+	SDL_UnlockAudioDevice(audio_dev);
+
+	SDL_CreateThread(mute_after, NULL, (void *)mute_data);
+
+	return 0;
+}
+
 
 void audio_callback(void *userdata, uint8_t *stream, int len)
 {
@@ -45,6 +87,7 @@ void audio_callback(void *userdata, uint8_t *stream, int len)
 		overlay.f = 0;
 		for (j = 0; j < 4; j++) {
 			overlay.f += (swdata[j].phase < 0.5) ? swdata[j].volume : -1 * swdata[j].volume;
+
 		}
 
 		for (j = 0; j < 4; j++) {
@@ -88,35 +131,15 @@ int handle_input(SDL_Event *e)
 		if (keycode == SDLK_ESCAPE) {
 			return 1;
 		} else if (keycode == SDLK_a) {
-			b1_state = 1;
-			update_needed = 1;
+			play_sound(0, 0.15, 100);
 		} else if (keycode == SDLK_s) {
-			b2_state = 1;
-			update_needed = 1;
+			play_sound(1, 0.15, 100);
 		} else if (keycode == SDLK_d) {
-			b3_state = 1;
-			update_needed = 1;
+			play_sound(2, 0.15, 100);
 		} else if (keycode == SDLK_f) {
-			b4_state = 1;
-			update_needed = 1;
-		}
-	} else if (e->type == SDL_KEYUP) {
-		SDL_Keycode keycode = e->key.keysym.sym;
-		if (keycode == SDLK_a) {
-			b1_state = 0;
-			update_needed = 1;
-		} else if (keycode == SDLK_s) {
-			b2_state = 0;
-			update_needed = 1;
-		} else if (keycode == SDLK_d) {
-			b3_state = 0;
-			update_needed = 1;
-		} else if (keycode == SDLK_f) {
-			b4_state = 0;
-			update_needed = 1;
+			play_sound(3, 0.15, 100);
 		}
 	}
-
 	return 0;
 }
 
@@ -169,54 +192,10 @@ void init()
 
 void draw()
 {
-	SDL_Rect r1 = { 285, 275, 50, 50 };
-	SDL_Rect r2 = { 345, 275, 50, 50 };
-	SDL_Rect r3 = { 405, 275, 50, 50 };
-	SDL_Rect r4 = { 465, 275, 50, 50 };
-
-	if (b1_state) {
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-	} else {
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-	}
-	SDL_RenderFillRect(renderer, &r1);
-	if (b2_state) {
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-	} else {
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-	}
-
-	SDL_RenderFillRect(renderer, &r2);
-	if (b3_state) {
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-	} else {
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-	}
-
-	SDL_RenderFillRect(renderer, &r3);
-	if (b4_state) {
-		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-	} else {
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-	}
-
-	SDL_RenderFillRect(renderer, &r4);
 }
 
 void update()
 {
-	if (!update_needed) {
-		return;
-	}
-
-	SDL_LockAudioDevice(audio_dev);
-	synthdata[0].volume = (b1_state) ? 0.15 : 0.0;
-	synthdata[1].volume = (b2_state) ? 0.15 : 0.0;
-	synthdata[2].volume = (b3_state) ? 0.15 : 0.0;
-	synthdata[3].volume = (b4_state) ? 0.15 : 0.0;
-	SDL_UnlockAudioDevice(audio_dev);
-
-	update_needed = 0;
 }
 
 void clean_up()
