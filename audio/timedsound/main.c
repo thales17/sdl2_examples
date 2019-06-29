@@ -8,9 +8,8 @@
 #define HEIGHT 600
 #define TITLE "Timed Sound"
 
-#define SOUND_DURATION_MS 250.0
-
-#define MS_STEP 44100.0 / 1000.0
+SDL_Window *window;
+SDL_Renderer *renderer;
 
 struct squarewave {
 	float phase_inc;
@@ -18,8 +17,6 @@ struct squarewave {
 	float volume;
 };
 
-SDL_Window *window;
-SDL_Renderer *renderer;
 
 SDL_AudioDeviceID audio_dev;
 SDL_AudioSpec have_spec;
